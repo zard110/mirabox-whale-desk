@@ -68,10 +68,12 @@ class Captions:
                 e=json.loads(EVENT.read_text())
                 if e['id']!=self.seen and 0<=time.time()-e['at']<1.5 and e['scene'] in TITLES and re.fullmatch(r'[a-z_]+-\d+',e['key']):
                     self.seen=e['id'];self.tile=card(e['text'],e['scene']);self.duration=float(e['duration']);self.started=time.monotonic()
-                    self.gift=SCENES.get(e['scene']) if e.get('audio',True) else None
+                    self.gift=SCENES.get(e['scene']) if e.get('gift',e.get('audio',True)) else None
                     self.gift_seed=e['id']
                     if self.player and self.player.poll() is None:self.player.terminate()
-                    if e.get('audio',True):self.player=subprocess.Popen(['pw-play',str(BANK/'clips'/(e['key']+'.wav'))],stdout=subprocess.DEVNULL)
+                    if e.get('audio',True):
+                        bank=BANK/'voices/playful' if e.get('voice')=='playful' else BANK
+                        self.player=subprocess.Popen(['pw-play',str(bank/'clips'/(e['key']+'.wav'))],stdout=subprocess.DEVNULL)
                     print('字幕开始:',e['key'],flush=True)
             except (OSError,ValueError,KeyError,TypeError):pass
         self.frame_elapsed=time.monotonic()-self.started

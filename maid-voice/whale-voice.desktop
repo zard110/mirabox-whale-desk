@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=鲸娘配音切换
+Comment=切换机灵少女与原配音，下次播报生效
+Exec=whale-voice
+Icon=audio-volume-high
+Terminal=false
+Categories=Utility;
+Keywords=鲸娘;声音;语音;恢复;whale;

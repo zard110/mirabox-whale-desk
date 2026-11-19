@@ -65,6 +65,66 @@ class PresenceTest(unittest.TestCase):
             a.observe(now+26,'unknown',False,False,'visitor_away')
             self.assertTrue(json.loads((Path(tmp)/'speech-event.json').read_text())['audio'])
 
+    def test_playful_visitor_loop_uses_clip_duration_without_repeating_gift(self):
+        import maid_events
+        with tempfile.TemporaryDirectory() as tmp, patch.object(maid_events,'STATE',Path(tmp)):
+            state=Path(tmp)
+            a=Announcer()
+            a.greeted_visitor=True
+            a.bags['visitor_here_all']={'left':[0], 'last':1, 'size':len(a.visitor_captions['visitor_here'])+len(a.lines['visitor_here'])}
+            (state/'voice-choice').write_text('playful')
+            bank=state/'voices/playful'
+            bank.mkdir(parents=True)
+            (bank/'durations.json').write_text(json.dumps({'visitor_here_loop-0':4.125}))
+            with patch.object(maid_events,'BANK',state):
+                a.publish('visitor_here',20)
+            event=json.loads((state/'speech-event.json').read_text())
+            self.assertTrue(event['audio'])
+            self.assertFalse(event['gift'])
+            self.assertEqual(event['duration'],4.125)
+            self.assertEqual(event['voice'],'playful')
+            self.assertEqual(event['text'],a.visitor_captions['visitor_here'][0])
+
+    def test_short_visits_and_restarts_share_full_voiced_round(self):
+        import maid_events
+        with tempfile.TemporaryDirectory() as tmp, patch.object(maid_events,'STATE',Path(tmp)):
+            root=Path(tmp)
+            (root/'voice-choice').write_text('playful')
+            for scene in ('visitor_here','visitor_away','visitor_unsure'):
+                a=Announcer()
+                expected=set(a.lines[scene]+a.visitor_captions[scene])
+                draws=[]
+                for i in range(len(expected)*2):
+                    if i%4==0:
+                        a=Announcer()
+                    a.observe(i*50,'unknown',False,False,scene)
+                    event=json.loads((root/'speech-event.json').read_text())
+                    self.assertTrue(event['audio'] and event['gift'])
+                    self.assertNotIn(event['text'],draws[-8:])
+                    draws.append(event['text'])
+                self.assertEqual(set(draws[:len(expected)]),expected)
+                self.assertEqual(set(draws[len(expected):]),expected)
+
+    def test_pose_flapping_limits_announcements_but_not_owner_return(self):
+        import maid_events
+        with tempfile.TemporaryDirectory() as tmp, patch.object(maid_events,'STATE',Path(tmp)):
+            a=Announcer()
+            spoken=[]
+            publish=a.publish
+            def record(scene,now):
+                spoken.append((scene,now))
+                publish(scene,now)
+            a.publish=record
+            for now in range(180):
+                pose='looking' if now%24<12 else 'working'
+                a.observe(now,pose,False,False,None)
+            for pose in ('looking','working'):
+                times=[t for s,t in spoken if s==pose]
+                self.assertGreaterEqual(len(times),2)
+                self.assertTrue(all(b-a>=75 for a,b in zip(times,times[1:])))
+            a.observe(200,'unknown',True,False,None)
+            self.assertEqual(spoken[-1],('return',200))
+
     def test_expanded_deck_resumes_legacy_round_after_restart(self):
         import maid_events
         with tempfile.TemporaryDirectory() as tmp, patch.object(maid_events,'STATE',Path(tmp)):
