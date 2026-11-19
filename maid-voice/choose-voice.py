@@ -24,6 +24,9 @@ def select(voice):
     durations = json.loads((folder / 'durations.json').read_text())
     lines = json.loads((BANK / 'lines.json').read_text())
     if voice == 'playful':
+        owner_extras = json.loads((folder / 'owner-captions.json').read_text())
+        for scene, phrases in owner_extras.items():
+            lines[scene].extend(phrases)
         captions = json.loads((BANK / 'visitor-captions.json').read_text())
         lines.update({f'{scene}_loop': phrases for scene, phrases in captions.items()})
     for scene, phrases in lines.items():

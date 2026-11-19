@@ -17,6 +17,7 @@ class Announcer:
         except (ValueError,OSError):self.bags={}
         self.free=0;self.pending={};self.last_pose=None;self.pose_since=0;self.said_pose=None
         self.visitor_captions=json.loads((BANK/'visitor-captions.json').read_text())
+        self.owner_extras=json.loads((BANK/'voices/playful/owner-captions.json').read_text())
         self.pose_spoken={}
         self.greeted_visitor=False
         self.last_visitor=-100.
@@ -109,6 +110,19 @@ class Announcer:
                 index-=len(captions)
                 key=f'{scene}-{index}'
                 text=self.lines[scene][index]
+        elif voice=='playful' and scene in self.owner_extras:
+            base=self.lines[scene]
+            options=base+self.owner_extras[scene]
+            bank=scene+'_playful'
+            if bank not in self.bags:
+                old=self.bags.get(scene,{})
+                left=self.legacy_remaining(scene,len(base))+list(range(len(base),len(options)))
+                last=old.get('last')
+                recent=old.get('recent',[last] if last is not None else [])
+                self.bags[bank]={'left':left,'size':len(options),'last':last,'recent':recent}
+            index=self.draw_index(bank,len(options))
+            key=f'{scene}-{index}'
+            text=options[index]
         else:
             bank=scene+'_loop' if repeat else scene
             options=self.visitor_captions[scene] if repeat else self.lines[scene]

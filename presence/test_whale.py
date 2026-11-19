@@ -105,6 +105,38 @@ class PresenceTest(unittest.TestCase):
                 self.assertEqual(set(draws[:len(expected)]),expected)
                 self.assertEqual(set(draws[len(expected):]),expected)
 
+    def test_playful_owner_round_resumes_and_original_voice_keeps_its_clips(self):
+        import maid_events
+        with tempfile.TemporaryDirectory() as tmp, patch.object(maid_events,'STATE',Path(tmp)):
+            state=Path(tmp)
+            choice=state/'voice-choice'
+            old={'left':[2,3],'last':1,'recent':[0,1],'size':4}
+            (state/'phrase-bags.json').write_text(json.dumps({s:old for s in ('looking','working')}))
+            for scene in ('looking','working'):
+                choice.write_text('playful')
+                a=Announcer()
+                options=a.lines[scene]+a.owner_extras[scene]
+                self.assertEqual(len(set(options)),64)
+                seen=[0,1]
+                for turn in range(126):
+                    if turn==17:
+                        choice.write_text('original')
+                        a.publish(scene,turn)
+                        event=json.loads((state/'speech-event.json').read_text())
+                        self.assertEqual(event['voice'],'original')
+                        self.assertIn(event['text'],a.lines[scene])
+                        self.assertTrue(event['audio'])
+                        choice.write_text('playful')
+                        a=Announcer()
+                    a.publish(scene,turn)
+                    event=json.loads((state/'speech-event.json').read_text())
+                    index=int(event['key'].split('-')[-1])
+                    self.assertEqual((event['voice'],event['audio'],event['text']),('playful',True,options[index]))
+                    self.assertNotIn(index,seen[-8:])
+                    seen.append(index)
+                self.assertEqual(set(seen[:64]),set(range(64)))
+                self.assertEqual(set(seen[64:]),set(range(64)))
+
     def test_pose_flapping_limits_announcements_but_not_owner_return(self):
         import maid_events
         with tempfile.TemporaryDirectory() as tmp, patch.object(maid_events,'STATE',Path(tmp)):
