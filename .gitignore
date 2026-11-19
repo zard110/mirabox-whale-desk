@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+presence/models/
+*.npy
+*.sqlite*
+.env
+preview.png
